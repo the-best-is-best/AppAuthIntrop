@@ -30,13 +30,14 @@ struct ContentView: View {
                 
                 Button("Login") {
                     statusText = "Starting login..."
-                    KAuthManager.shared.login { success, error in
+                    KAuthManager.shared.login { accessToken, refresh , idToken , error in
                         Task { @MainActor in
-                            if success {
+                            if (error != nil) {
+                                statusText = "❌ Login Failed: \(error ?? "Unknown")"
+                                
+                            } else {
                                 statusText = "✅ Login Success"
                                 loadTokens()
-                            } else {
-                                statusText = "❌ Login Failed: \(error ?? "Unknown")"
                             }
                         }
                     }
@@ -45,13 +46,14 @@ struct ContentView: View {
                 
                 Button("Refresh Token") {
                     statusText = "Refreshing access token..."
-                    KAuthManager.shared.refreshAccessToken { success, error in
+                    KAuthManager.shared.refreshAccessToken { accessToken, refresh , idToken , error in
                         Task { @MainActor in
-                            if success {
+                            if (error != nil) {
+                                statusText = "❌ Refresh failed: \(error ?? "Unknown")"
+                                
+                            } else {
                                 statusText = "✅ Token refreshed"
                                 loadTokens()
-                            } else {
-                                statusText = "❌ Refresh failed: \(error ?? "Unknown")"
                             }
                         }
                     }
