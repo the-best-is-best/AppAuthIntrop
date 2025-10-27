@@ -32,6 +32,16 @@ public class KAuthManager: NSObject {
         
     }
     
+    // MARK: - Public getters for tokens
+    @objc public var accessToken: String? {
+        return authState?.lastTokenResponse?.accessToken
+    }
+
+    @objc public var refreshToken: String? {
+        return authState?.lastTokenResponse?.refreshToken
+    }
+
+    
     // MARK: - Load OpenID Configuration
    @MainActor private func loadConfiguration(_ completion: @escaping (OIDServiceConfiguration?, Error?) -> Void) {
         // Capture completion locally

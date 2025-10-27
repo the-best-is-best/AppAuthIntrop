@@ -1,10 +1,3 @@
-//
-//  ContentView.swift
-//  TestAppAuthIntrop
-//
-//  Created by Michelle Raouf on 27/10/2025.
-//
-
 import SwiftUI
 import AppAuthIntrop
 
@@ -12,10 +5,7 @@ struct ContentView: View {
     
     @State private var statusText: String = "Ready to test OAuth"
     @State private var userInfoText: String = ""
-    
-
-    
-    
+    @State private var tokenInfoText: String = ""
     
     var body: some View {
         VStack(spacing: 20) {
@@ -36,22 +26,38 @@ struct ContentView: View {
             
             Divider()
             
-            // MARK: - Buttons
-            
-            Button("Login") {
-                statusText = "Starting login..."
+            HStack(spacing: 12) {
                 
-                KAuthManager.shared.login { success, error in
-                    Task { @MainActor in
-                        if success {
-                            statusText = "✅ Login Success"
-                        } else {
-                            statusText = "❌ Login Failed: \(error ?? "Unknown")"
+                Button("Login") {
+                    statusText = "Starting login..."
+                    KAuthManager.shared.login { success, error in
+                        Task { @MainActor in
+                            if success {
+                                statusText = "✅ Login Success"
+                                loadTokens()
+                            } else {
+                                statusText = "❌ Login Failed: \(error ?? "Unknown")"
+                            }
                         }
                     }
                 }
+                .buttonStyle(.borderedProminent)
+                
+                Button("Refresh Token") {
+                    statusText = "Refreshing access token..."
+                    KAuthManager.shared.refreshAccessToken { success, error in
+                        Task { @MainActor in
+                            if success {
+                                statusText = "✅ Token refreshed"
+                                loadTokens()
+                            } else {
+                                statusText = "❌ Refresh failed: \(error ?? "Unknown")"
+                            }
+                        }
+                    }
+                }
+                .buttonStyle(.bordered)
             }
-            .buttonStyle(.borderedProminent)
             
             Button("Get User Info") {
                 statusText = "Fetching user info..."
@@ -78,6 +84,7 @@ struct ContentView: View {
                         if success {
                             statusText = "✅ Logout Success"
                             userInfoText = ""
+                            tokenInfoText = ""
                         } else {
                             statusText = "❌ Logout Failed: \(error ?? "Unknown")"
                         }
@@ -86,21 +93,46 @@ struct ContentView: View {
             }
             .buttonStyle(.bordered)
             
+            // MARK: - Tokens
             ScrollView {
-                if !userInfoText.isEmpty {
-                    Text(userInfoText)
-                        .font(.caption)
-                        .padding()
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(8)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 10) {
+                    if !tokenInfoText.isEmpty {
+                        Text("🔑 Tokens:")
+                            .font(.headline)
+                        Text(tokenInfoText)
+                            .font(.caption)
+                            .padding()
+                            .background(Color.gray.opacity(0.1))
+                            .cornerRadius(8)
+                            .textSelection(.enabled) // يمكن نسخ التوكن
+                    }
+                    
+                    if !userInfoText.isEmpty {
+                        Text("👤 User Info:")
+                            .font(.headline)
+                        Text(userInfoText)
+                            .font(.caption)
+                            .padding()
+                            .background(Color.gray.opacity(0.1))
+                            .cornerRadius(8)
+                            .textSelection(.enabled)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxHeight: 200)
+            .frame(maxHeight: 300)
             
             Spacer()
         }
         .padding()
+    }
+    
+    private func loadTokens() {
+        Task { @MainActor in
+            let accessToken = KAuthManager.shared.authState?.lastTokenResponse?.accessToken ?? "N/A"
+            let refreshToken = KAuthManager.shared.authState?.lastTokenResponse?.refreshToken ?? "N/A"
+            tokenInfoText = "Access Token:\n\(accessToken)\n\nRefresh Token:\n\(refreshToken)"
+        }
     }
 }
 
