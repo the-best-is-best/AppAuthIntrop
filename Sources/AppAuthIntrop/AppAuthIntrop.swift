@@ -75,30 +75,28 @@ public class KAuthManager: NSObject {
         }
     }
 
-
-    // MARK: - Login
     @MainActor
-    @objc public func login(_ completion: @escaping (Bool, String?) -> Void) {
+    @objc public func login(_ completion: @escaping (_ accessToken: String?, _ refreshToken: String?, _ idToken: String?, _ errorMessage: String?) -> Void) {
         guard let presentingVC = KAuthPresenter.topViewController() else {
-            completion(false, "No active ViewController found")
+            completion(nil, nil, nil, "No active ViewController found")
             return
         }
         
         loadConfiguration { config, error in
             if let error = error {
-                completion(false, "Discovery error: \(error.localizedDescription)")
+                completion(nil, nil, nil, "Discovery error: \(error.localizedDescription)")
                 return
             }
             guard let config = config else {
-                completion(false, "Configuration missing")
+                completion(nil, nil, nil, "Configuration missing")
                 return
             }
             
             Task {
-                let openId =  KOpenIdConfig.shared
+                let openId = KOpenIdConfig.shared
                 
                 guard let redirectURI = URL(string: await openId.getRedirectUrl()) else {
-                    await MainActor.run { completion(false, "Invalid redirect URL") }
+                    await MainActor.run { completion(nil, nil, nil, "Invalid redirect URL") }
                     return
                 }
                 
@@ -122,17 +120,21 @@ public class KAuthManager: NSObject {
                 ) { authState, error in
                     Task { @MainActor in
                         if let error = error {
-                            completion(false, "Login failed: \(error.localizedDescription)")
+                            completion(nil, nil, nil, "Login failed: \(error.localizedDescription)")
                             return
                         }
                         self.authState = authState
                         self.saveAuthState()
-                        completion(true, nil)
+                        completion(authState?.lastTokenResponse?.accessToken,
+                                   authState?.lastTokenResponse?.refreshToken,
+                                   authState?.lastTokenResponse?.idToken,
+                                   nil)
                     }
                 }
             }
         }
     }
+
     
     // MARK: - Logout
     @MainActor
@@ -197,20 +199,24 @@ public class KAuthManager: NSObject {
     
     @MainActor
     @objc
-    public func refreshAccessToken(_ completion: @escaping (Bool, String?) -> Void) {
+    public func refreshAccessToken(_ completion: @escaping (_ accessToken: String?, _ refreshToken: String?, _ idToken: String?, _ errorMessage: String?) -> Void) {
         guard let authState = authState else {
-            completion(false, "No auth state available")
+            completion(nil, nil, nil, "No auth state available")
             return
         }
 
         authState.setNeedsTokenRefresh()
         authState.performAction { accessToken, idToken, error in
-            if let error = error {
-                completion(false, "Refresh failed: \(error.localizedDescription)")
-            } else {
-                // توكن جديد تم تحديثه تلقائيًا
-                self.saveAuthState() // احفظ الحالة الجديدة
-                completion(true, nil)
+            Task { @MainActor in
+                if let error = error {
+                    completion(nil, nil, nil, "Refresh failed: \(error.localizedDescription)")
+                } else {
+                    self.saveAuthState() // احفظ الحالة الجديدة
+                    completion(accessToken,
+                               authState.lastTokenResponse?.refreshToken,
+                               idToken,
+                               nil)
+                }
             }
         }
     }
