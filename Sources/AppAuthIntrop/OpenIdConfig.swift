@@ -9,7 +9,8 @@ import Foundation
 
 @MainActor
 @objcMembers
-public final class OpenIdConfig: NSObject {
+@objc
+public final class KOpenIdConfig: NSObject {
 
     // Actor داخلي للتخزين الآمن
     private actor Storage {
@@ -38,7 +39,7 @@ public final class OpenIdConfig: NSObject {
     private let storage = Storage()
 
     // Singleton
-    @objc public static let shared = OpenIdConfig()
+    @objc public static let shared = KOpenIdConfig()
 
     private override init() { super.init() }
 

@@ -45,7 +45,7 @@ public class KAuthManager: NSObject {
         }
         
         Task {
-            let openId =  OpenIdConfig.shared
+            let openId =  KOpenIdConfig.shared
             let discoveryUrl = await openId.getDiscoveryUrl()
             
             guard let issuer = URL(string: discoveryUrl) else {
@@ -85,7 +85,7 @@ public class KAuthManager: NSObject {
             }
             
             Task {
-                let openId =  OpenIdConfig.shared
+                let openId =  KOpenIdConfig.shared
                 
                 guard let redirectURI = URL(string: await openId.getRedirectUrl()) else {
                     await MainActor.run { completion(false, "Invalid redirect URL") }
@@ -149,7 +149,7 @@ public class KAuthManager: NSObject {
             }
             
             Task {
-                let openId =  OpenIdConfig.shared
+                let openId =  KOpenIdConfig.shared
                 guard let logoutRedirectURI = URL(string: await openId.getPostLogoutRedirectURL()) else {
                     await MainActor.run { completion(false, "Invalid logout redirect URL") }
                     return
@@ -184,6 +184,26 @@ public class KAuthManager: NSObject {
             }
         }
     }
+    
+    @MainActor
+    public func refreshAccessToken(_ completion: @escaping (Bool, String?) -> Void) {
+        guard let authState = authState else {
+            completion(false, "No auth state available")
+            return
+        }
+
+        authState.setNeedsTokenRefresh()
+        authState.performAction { accessToken, idToken, error in
+            if let error = error {
+                completion(false, "Refresh failed: \(error.localizedDescription)")
+            } else {
+                // توكن جديد تم تحديثه تلقائيًا
+                self.saveAuthState() // احفظ الحالة الجديدة
+                completion(true, nil)
+            }
+        }
+    }
+
     
     // MARK: - Get User Info
     @objc public func getUserInfo(_ completion: @escaping ([String: Any]?, String?) -> Void) {
