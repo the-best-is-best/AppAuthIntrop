@@ -76,19 +76,19 @@ public class KAuthManager: NSObject {
     }
 
     @MainActor
-    @objc public func login(_ completion: @escaping (_ accessToken: String?, _ refreshToken: String?, _ idToken: String?, _ errorMessage: String?) -> Void) {
+    @objc public func login(_ completion: @escaping (_ success: AuthTokens?, _ error: String?) -> Void) {
         guard let presentingVC = KAuthPresenter.topViewController() else {
-            completion(nil, nil, nil, "No active ViewController found")
+            completion( nil, "No active ViewController found")
             return
         }
         
         loadConfiguration { config, error in
             if let error = error {
-                completion(nil, nil, nil, "Discovery error: \(error.localizedDescription)")
+                completion(nil, "Discovery error: \(error.localizedDescription)")
                 return
             }
             guard let config = config else {
-                completion(nil, nil, nil, "Configuration missing")
+                completion(nil, "Configuration missing")
                 return
             }
             
@@ -96,7 +96,7 @@ public class KAuthManager: NSObject {
                 let openId = KOpenIdConfig.shared
                 
                 guard let redirectURI = URL(string: await openId.getRedirectUrl()) else {
-                    await MainActor.run { completion(nil, nil, nil, "Invalid redirect URL") }
+                    await MainActor.run { completion(nil, "Invalid redirect URL") }
                     return
                 }
                 
@@ -120,14 +120,14 @@ public class KAuthManager: NSObject {
                 ) { authState, error in
                     Task { @MainActor in
                         if let error = error {
-                            completion(nil, nil, nil, "Login failed: \(error.localizedDescription)")
+                            completion(nil, "Login failed: \(error.localizedDescription)")
                             return
                         }
                         self.authState = authState
                         self.saveAuthState()
-                        completion(authState?.lastTokenResponse?.accessToken,
-                                   authState?.lastTokenResponse?.refreshToken,
-                                   authState?.lastTokenResponse?.idToken,
+                        let res = authState?.lastTokenResponse
+                        completion(
+                            AuthTokens(accessToken: res?.accessToken, refreshToken: res?.refreshToken , idToken: res?.idToken),
                                    nil)
                     }
                 }
@@ -198,10 +198,9 @@ public class KAuthManager: NSObject {
     }
     
     @MainActor
-    @objc
-    public func refreshAccessToken(_ completion: @escaping (_ accessToken: String?, _ refreshToken: String?, _ idToken: String?, _ errorMessage: String?) -> Void) {
+    @objc public func refreshAccessToken(_ completion: @escaping (_ success: AuthTokens?, _ error: String?) -> Void) {
         guard let authState = authState else {
-            completion(nil, nil, nil, "No auth state available")
+            completion(nil, "No auth state available")
             return
         }
 
@@ -209,16 +208,26 @@ public class KAuthManager: NSObject {
         authState.performAction { accessToken, idToken, error in
             Task { @MainActor in
                 if let error = error {
-                    completion(nil, nil, nil, "Refresh failed: \(error.localizedDescription)")
+                    completion(nil, "Refresh failed: \(error.localizedDescription)")
                 } else {
                     self.saveAuthState() // احفظ الحالة الجديدة
-                    completion(accessToken,
-                               authState.lastTokenResponse?.refreshToken,
-                               idToken,
-                               nil)
+                    completion(
+                        AuthTokens(accessToken: accessToken, refreshToken: authState.lastTokenResponse?.refreshToken, idToken: idToken),
+                        nil)
                 }
             }
         }
+    }
+    
+    @MainActor
+    @objc public func getAuthTokens() -> AuthTokens? {
+        loadAuthState()
+        guard let authState = self.authState else { return nil }
+        return AuthTokens(
+            accessToken: authState.lastTokenResponse?.accessToken,
+            refreshToken: authState.lastTokenResponse?.refreshToken,
+            idToken: authState.lastTokenResponse?.idToken
+        )
     }
 
     
