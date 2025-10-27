@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		41DFCD782EAFB82C00929ABC /* AppAuthIntrop in Frameworks */ = {isa = PBXBuildFile; productRef = 41DFCD772EAFB82C00929ABC /* AppAuthIntrop */; };
+		41DFCD7B2EAFB9A300929ABC /* AppAuthIntrop in Frameworks */ = {isa = PBXBuildFile; productRef = 41DFCD7A2EAFB9A300929ABC /* AppAuthIntrop */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,6 +28,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				41DFCD7B2EAFB9A300929ABC /* AppAuthIntrop in Frameworks */,
 				41DFCD782EAFB82C00929ABC /* AppAuthIntrop in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -71,6 +73,7 @@
 			name = TestAppAuthIntrop;
 			packageProductDependencies = (
 				41DFCD772EAFB82C00929ABC /* AppAuthIntrop */,
+				41DFCD7A2EAFB9A300929ABC /* AppAuthIntrop */,
 			);
 			productName = TestAppAuthIntrop;
 			productReference = 41DFCD672EAFB80600929ABC /* TestAppAuthIntrop.app */;
@@ -101,6 +104,7 @@
 			mainGroup = 41DFCD5E2EAFB80600929ABC;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				41DFCD792EAFB9A200929ABC /* XCRemoteSwiftPackageReference "AppAuthIntrop" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 41DFCD682EAFB80600929ABC /* Products */;
@@ -346,9 +350,25 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		41DFCD792EAFB9A200929ABC /* XCRemoteSwiftPackageReference "AppAuthIntrop" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/the-best-is-best/AppAuthIntrop";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		41DFCD772EAFB82C00929ABC /* AppAuthIntrop */ = {
 			isa = XCSwiftPackageProductDependency;
+			productName = AppAuthIntrop;
+		};
+		41DFCD7A2EAFB9A300929ABC /* AppAuthIntrop */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 41DFCD792EAFB9A200929ABC /* XCRemoteSwiftPackageReference "AppAuthIntrop" */;
 			productName = AppAuthIntrop;
 		};
 /* End XCSwiftPackageProductDependency section */

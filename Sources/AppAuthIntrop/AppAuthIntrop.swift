@@ -76,7 +76,7 @@ public class KAuthManager: NSObject {
             }
             
             Task {
-                let openId =  OpenIdConfig.shared
+                let openId = await OpenIdConfig.shared
                 
                 guard let redirectURI = URL(string: await openId.getRedirectUrl()) else {
                     await MainActor.run { completion(false, "Invalid redirect URL") }
