@@ -12,11 +12,11 @@ import AppAuthIntrop
 struct TestAppAuthIntropApp: App {
     init (){
         
-        OpenIdConfig.shared.configure(
+        KOpenIdConfig.shared.configure(
             discoveryUrl: "https://demo.duendesoftware.com", // فقط issuer
             clientId: "interactive.public",
             redirectUrl: "com.duendesoftware.demo:/oauthredirect",
-            scope: "openid profile email api",
+            scope: "openid profile email api offline_access",
             postLogoutRedirectURL: "com.duendesoftware.demo:/"
         )
         KAuthManager.shared.initCrypto(service: "auth", group: "kmmOpenId")

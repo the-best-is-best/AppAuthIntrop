@@ -129,8 +129,8 @@ struct ContentView: View {
     
     private func loadTokens() {
         Task { @MainActor in
-            let accessToken = KAuthManager.shared.authState?.lastTokenResponse?.accessToken ?? "N/A"
-            let refreshToken = KAuthManager.shared.authState?.lastTokenResponse?.refreshToken ?? "N/A"
+            let accessToken = KAuthManager.shared.accessToken ?? "N/A"
+            let refreshToken = KAuthManager.shared.refreshToken ?? "N/A"
             tokenInfoText = "Access Token:\n\(accessToken)\n\nRefresh Token:\n\(refreshToken)"
         }
     }
