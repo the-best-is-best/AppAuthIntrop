@@ -34,13 +34,13 @@ let package = Package(
             path: "Sources/AppAuthIntrop",  // تأكد من المسار الصحيح
             resources: [],
 
-            //     swiftSettings: [
-            //         .define("PLATFORM_IOS", .when(platforms: [.iOS])),
-            //        .unsafeFlags([
-            //            "-emit-objc-header",
-            //            "-emit-objc-header-path", "./Headers/KAppAuthIntrop-Swift.h"
-            //        ])
-            //   ]
+            swiftSettings: [
+                .define("PLATFORM_IOS", .when(platforms: [.iOS])),
+                .unsafeFlags([
+                    "-emit-objc-header",
+                    "-emit-objc-header-path", "./Headers/KAppAuthIntrop-Swift.h",
+                ]),
+            ]
         )
     ]
 )
