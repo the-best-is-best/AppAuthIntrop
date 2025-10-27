@@ -304,6 +304,16 @@ typedef unsigned int swift_uint4  __attribute__((__ext_vector_type__(4)));
 #if defined(__OBJC__)
 
 @class NSString;
+SWIFT_CLASS("_TtC13AppAuthIntrop10AuthTokens")
+@interface AuthTokens : NSObject
+@property (nonatomic, copy) NSString * _Nullable accessToken;
+@property (nonatomic, copy) NSString * _Nullable refreshToken;
+@property (nonatomic, copy) NSString * _Nullable idToken;
+- (nonnull instancetype)initWithAccessToken:(NSString * _Nullable)accessToken refreshToken:(NSString * _Nullable)refreshToken idToken:(NSString * _Nullable)idToken OBJC_DESIGNATED_INITIALIZER;
+- (nonnull instancetype)init SWIFT_UNAVAILABLE;
++ (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
+@end
+
 SWIFT_CLASS("_TtC13AppAuthIntrop12KAuthManager")
 @interface KAuthManager : NSObject
 SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) KAuthManager * _Nonnull shared;)
@@ -311,9 +321,10 @@ SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) KAuthManager
 - (void)initCryptoWithService:(NSString * _Nonnull)service group:(NSString * _Nonnull)group SWIFT_METHOD_FAMILY(none);
 @property (nonatomic, readonly, copy) NSString * _Nullable accessToken;
 @property (nonatomic, readonly, copy) NSString * _Nullable refreshToken;
-- (void)login:(void (^ _Nonnull)(BOOL, NSString * _Nullable))completion;
+- (void)login:(void (^ _Nonnull)(AuthTokens * _Nullable, NSString * _Nullable))completion;
 - (void)logout:(void (^ _Nonnull)(BOOL, NSString * _Nullable))completion;
-- (void)refreshAccessToken:(void (^ _Nonnull)(BOOL, NSString * _Nullable))completion;
+- (void)refreshAccessToken:(void (^ _Nonnull)(AuthTokens * _Nullable, NSString * _Nullable))completion;
+- (AuthTokens * _Nullable)getAuthTokens SWIFT_WARN_UNUSED_RESULT;
 - (void)getUserInfo:(void (^ _Nonnull)(NSDictionary<NSString *, id> * _Nullable, NSString * _Nullable))completion;
 - (nonnull instancetype)init OBJC_DESIGNATED_INITIALIZER;
 @end
