@@ -5,13 +5,13 @@ let package = Package(
     name: "AppAuthIntrop",
     defaultLocalization: "en",
     platforms: [
-        .iOS(.v13) // يدعم iOS فقط
+        .iOS(.v13)  // يدعم iOS فقط
     ],
     products: [
         .library(
             name: "AppAuthIntrop",
             targets: ["AppAuthIntrop"]
-        ),
+        )
     ],
     dependencies: [
         .package(
@@ -21,22 +21,26 @@ let package = Package(
         .package(
             url: "https://github.com/the-best-is-best/IOSCrypto",
             from: "1.0.1"
-        )
+        ),
     ],
     targets: [
         .target(
             name: "AppAuthIntrop",
             dependencies: [
                 .product(name: "AppAuth", package: "AppAuth-iOS"),
-                .product(name: "kmmcrypto", package: "IOSCrypto")
+                .product(name: "kmmcrypto", package: "IOSCrypto"),
 
             ],
-            path: "Sources/AppAuthIntrop", // تأكد من المسار الصحيح
+            path: "Sources/AppAuthIntrop",  // تأكد من المسار الصحيح
             resources: [],
-            swiftSettings: [
-                // هذا يضمن استخدام SDK الخاص بـ iOS
-                .define("PLATFORM_IOS", .when(platforms: [.iOS]))
-            ]
-        ),
+
+            //     swiftSettings: [
+            //         .define("PLATFORM_IOS", .when(platforms: [.iOS])),
+            //        .unsafeFlags([
+            //            "-emit-objc-header",
+            //            "-emit-objc-header-path", "./Headers/KAppAuthIntrop-Swift.h"
+            //        ])
+            //   ]
+        )
     ]
 )
