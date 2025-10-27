@@ -355,7 +355,7 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/the-best-is-best/AppAuthIntrop";
 			requirement = {
-				branch = main;
+				branch = dev;
 				kind = branch;
 			};
 		};

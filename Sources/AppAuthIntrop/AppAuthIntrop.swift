@@ -127,7 +127,7 @@ public class KAuthManager: NSObject {
                         self.saveAuthState()
                         let res = authState?.lastTokenResponse
                         completion(
-                            AuthTokens(accessToken: res?.accessToken, refreshToken: res?.refreshToken , idToken: res?.idToken),        
+                            AuthTokens(accessToken: res?.accessToken, refreshToken: res?.refreshToken , idToken: res?.idToken),
                                    nil)
                     }
                 }
@@ -221,6 +221,7 @@ public class KAuthManager: NSObject {
     
     @MainActor
     @objc public func getAuthTokens() -> AuthTokens? {
+        loadAuthState()
         guard let authState = self.authState else { return nil }
         return AuthTokens(
             accessToken: authState.lastTokenResponse?.accessToken,
