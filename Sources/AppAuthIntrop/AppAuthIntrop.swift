@@ -186,6 +186,7 @@ public class KAuthManager: NSObject {
     }
     
     @MainActor
+    @objc
     public func refreshAccessToken(_ completion: @escaping (Bool, String?) -> Void) {
         guard let authState = authState else {
             completion(false, "No auth state available")

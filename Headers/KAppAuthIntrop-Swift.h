@@ -311,6 +311,7 @@ SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) KAuthManager
 - (void)initCryptoWithService:(NSString * _Nonnull)service group:(NSString * _Nonnull)group SWIFT_METHOD_FAMILY(none);
 - (void)login:(void (^ _Nonnull)(BOOL, NSString * _Nullable))completion;
 - (void)logout:(void (^ _Nonnull)(BOOL, NSString * _Nullable))completion;
+- (void)refreshAccessToken:(void (^ _Nonnull)(BOOL, NSString * _Nullable))completion;
 - (void)getUserInfo:(void (^ _Nonnull)(NSDictionary<NSString *, id> * _Nullable, NSString * _Nullable))completion;
 - (nonnull instancetype)init OBJC_DESIGNATED_INITIALIZER;
 @end
