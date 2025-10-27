@@ -309,6 +309,8 @@ SWIFT_CLASS("_TtC13AppAuthIntrop12KAuthManager")
 SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) KAuthManager * _Nonnull shared;)
 + (KAuthManager * _Nonnull)shared SWIFT_WARN_UNUSED_RESULT;
 - (void)initCryptoWithService:(NSString * _Nonnull)service group:(NSString * _Nonnull)group SWIFT_METHOD_FAMILY(none);
+@property (nonatomic, readonly, copy) NSString * _Nullable accessToken;
+@property (nonatomic, readonly, copy) NSString * _Nullable refreshToken;
 - (void)login:(void (^ _Nonnull)(BOOL, NSString * _Nullable))completion;
 - (void)logout:(void (^ _Nonnull)(BOOL, NSString * _Nullable))completion;
 - (void)refreshAccessToken:(void (^ _Nonnull)(BOOL, NSString * _Nullable))completion;
