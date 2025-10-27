@@ -18,9 +18,18 @@ public class KAuthManager: NSObject {
     private var currentFlow: OIDExternalUserAgentSession?
     private var configuration: OIDServiceConfiguration?
     
+    private var service: String?
+    private var group: String?
+    
     private override init() {
         super.init()
         loadAuthState()
+    }
+    
+  @objc public  func initCrypto(service: String , group:String){
+      self.service = service
+      self.group = group
+        
     }
     
     // MARK: - Load OpenID Configuration
@@ -220,7 +229,7 @@ public class KAuthManager: NSObject {
         guard let state = authState else { return }
         do {
             let data = try NSKeyedArchiver.archivedData(withRootObject: state, requiringSecureCoding: true)
-            IOSCryptoManager.saveDataType(service: "KAuthService", account: "OIDAuthState", data: data) { error in
+            IOSCryptoManager.saveDataType(service: self.service!, account: self.group!, data: data) { error in
                 if let error = error {
                     print("🔐 Save auth state failed: \(error.localizedDescription)")
                 } else {
@@ -233,7 +242,7 @@ public class KAuthManager: NSObject {
     }
     
     private func loadAuthState() {
-        IOSCryptoManager.getDataType(service: "KAuthService", account: "OIDAuthState") { data, error in
+        IOSCryptoManager.getDataType(service: self.service!, account: self.group!) { data, error in
             if let error = error {
                 print("🔐 Load auth state failed: \(error.localizedDescription)")
                 return
@@ -252,7 +261,7 @@ public class KAuthManager: NSObject {
     
     private func clearAuthState() {
         authState = nil
-        IOSCryptoManager.deleteData(service: "KAuthService", account: "OIDAuthState")
+        IOSCryptoManager.deleteData(service: self.service!, account: self.group!)
         print("🔐 Auth state cleared from Keychain")
     }
 }
