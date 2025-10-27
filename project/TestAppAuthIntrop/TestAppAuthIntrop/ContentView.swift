@@ -13,18 +13,7 @@ struct ContentView: View {
     @State private var statusText: String = "Ready to test OAuth"
     @State private var userInfoText: String = ""
     
-    // MARK: - Configure OpenIdConfig once
-    private func configureOpenId() {
-        OpenIdConfig.shared.configure(
-            discoveryUrl: "https://demo.duendesoftware.com", // فقط issuer
-            clientId: "interactive.public",
-            redirectUrl: "com.duendesoftware.demo:/oauthredirect",
-            scope: "openid profile email api",
-            postLogoutRedirectURL: "com.duendesoftware.demo:/"
-        )
 
-
-    }
     
     
     
@@ -50,7 +39,6 @@ struct ContentView: View {
             // MARK: - Buttons
             
             Button("Login") {
-                configureOpenId()
                 statusText = "Starting login..."
                 
                 KAuthManager.shared.login { success, error in

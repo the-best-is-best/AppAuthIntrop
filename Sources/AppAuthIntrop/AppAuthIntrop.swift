@@ -21,10 +21,10 @@ public class KAuthManager: NSObject {
     private var service: String?
     private var group: String?
     
-    private override init() {
-        super.init()
-        loadAuthState()
-    }
+//    private override init() {
+//        super.init()
+//        loadAuthState()
+//    }
     
   @objc public  func initCrypto(service: String , group:String){
       self.service = service
@@ -241,23 +241,23 @@ public class KAuthManager: NSObject {
         }
     }
     
-    private func loadAuthState() {
-        IOSCryptoManager.getDataType(service: self.service!, account: self.group!) { data, error in
-            if let error = error {
-                print("🔐 Load auth state failed: \(error.localizedDescription)")
-                return
-            }
-            guard let data = data as Data? else { return }
-            do {
-                if let state = try NSKeyedUnarchiver.unarchivedObject(ofClass: OIDAuthState.self, from: data) {
-                    self.authState = state
-                    print("🔐 Auth state loaded successfully from Keychain")
-                }
-            } catch {
-                print("🔐 Load auth state decoding failed: \(error)")
-            }
-        }
-    }
+//    private func loadAuthState() {
+//        IOSCryptoManager.getDataType(service: self.service!, account: self.group!) { data, error in
+//            if let error = error {
+//                print("🔐 Load auth state failed: \(error.localizedDescription)")
+//                return
+//            }
+//            guard let data = data as Data? else { return }
+//            do {
+//                if let state = try NSKeyedUnarchiver.unarchivedObject(ofClass: OIDAuthState.self, from: data) {
+//                    self.authState = state
+//                    print("🔐 Auth state loaded successfully from Keychain")
+//                }
+//            } catch {
+//                print("🔐 Load auth state decoding failed: \(error)")
+//            }
+//        }
+//    }
     
     private func clearAuthState() {
         authState = nil
