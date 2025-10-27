@@ -35,11 +35,11 @@ let package = Package(
             resources: [],
 
             swiftSettings: [
-                .define("PLATFORM_IOS", .when(platforms: [.iOS])),
-                .unsafeFlags([
-                    "-emit-objc-header",
-                    "-emit-objc-header-path", "./Headers/KAppAuthIntrop-Swift.h",
-                ]),
+                .define("PLATFORM_IOS", .when(platforms: [.iOS]))
+                // .unsafeFlags([
+                //     "-emit-objc-header",
+                //     "-emit-objc-header-path", "./Headers/KAppAuthIntrop-Swift.h",
+                // ]),
             ]
         )
     ]
