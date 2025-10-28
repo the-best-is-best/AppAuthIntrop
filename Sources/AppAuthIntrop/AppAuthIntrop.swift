@@ -13,7 +13,7 @@ import kmmcrypto
 public class KAuthManager: NSObject {
     
     @MainActor public static let shared = KAuthManager()
-        
+    
     private var authState: OIDAuthState?
     private var currentFlow: OIDExternalUserAgentSession?
     private var configuration: OIDServiceConfiguration?
@@ -21,41 +21,29 @@ public class KAuthManager: NSObject {
     private var service: String?
     private var group: String?
     
-//    private override init() {
-//        super.init()
-//        loadAuthState()
-//    }
-    
-  @objc public  func initCrypto(service: String , group:String){
-      self.service = service
-      self.group = group
-        
+    @objc public func initCrypto(service: String, group: String) {
+        self.service = service
+        self.group = group
     }
     
-    // MARK: - Public getters for tokens
+    // MARK: - Public getters
     @objc public var accessToken: String? {
         return authState?.lastTokenResponse?.accessToken
     }
-
+    
     @objc public var refreshToken: String? {
         return authState?.lastTokenResponse?.refreshToken
     }
-
     
     // MARK: - Load OpenID Configuration
-   @MainActor private func loadConfiguration(_ completion: @escaping (OIDServiceConfiguration?, Error?) -> Void) {
-        // Capture completion locally
-        let completion = completion
-
+    @MainActor private func loadConfiguration(_ completion: @escaping (OIDServiceConfiguration?, Error?) -> Void) {
         if let config = configuration {
-            Task { @MainActor in
-                completion(config, nil)
-            }
+            Task { @MainActor in completion(config, nil) }
             return
         }
         
         Task {
-            let openId =  KOpenIdConfig.shared
+            let openId = KOpenIdConfig.shared
             let discoveryUrl = await openId.getDiscoveryUrl()
             
             guard let issuer = URL(string: discoveryUrl) else {
@@ -74,11 +62,12 @@ public class KAuthManager: NSObject {
             }
         }
     }
-
+    
+    // MARK: - Login
     @MainActor
     @objc public func login(_ completion: @escaping (_ success: AuthTokens?, _ error: String?) -> Void) {
         guard let presentingVC = KAuthPresenter.topViewController() else {
-            completion( nil, "No active ViewController found")
+            completion(nil, "No active ViewController found")
             return
         }
         
@@ -94,7 +83,6 @@ public class KAuthManager: NSObject {
             
             Task {
                 let openId = KOpenIdConfig.shared
-                
                 guard let redirectURI = URL(string: await openId.getRedirectUrl()) else {
                     await MainActor.run { completion(nil, "Invalid redirect URL") }
                     return
@@ -127,14 +115,17 @@ public class KAuthManager: NSObject {
                         self.saveAuthState()
                         let res = authState?.lastTokenResponse
                         completion(
-                            AuthTokens(accessToken: res?.accessToken, refreshToken: res?.refreshToken , idToken: res?.idToken),
-                                   nil)
+                            AuthTokens(
+                                accessToken: res?.accessToken,
+                                refreshToken: res?.refreshToken,
+                                idToken: res?.idToken
+                            ), nil
+                        )
                     }
                 }
             }
         }
     }
-
     
     // MARK: - Logout
     @MainActor
@@ -161,7 +152,7 @@ public class KAuthManager: NSObject {
             }
             
             Task {
-                let openId =  KOpenIdConfig.shared
+                let openId = KOpenIdConfig.shared
                 guard let logoutRedirectURI = URL(string: await openId.getPostLogoutRedirectURL()) else {
                     await MainActor.run { completion(false, "Invalid logout redirect URL") }
                     return
@@ -197,23 +188,28 @@ public class KAuthManager: NSObject {
         }
     }
     
+    // MARK: - Refresh Token
     @MainActor
     @objc public func refreshAccessToken(_ completion: @escaping (_ success: AuthTokens?, _ error: String?) -> Void) {
         guard let authState = authState else {
             completion(nil, "No auth state available")
             return
         }
-
+        
         authState.setNeedsTokenRefresh()
         authState.performAction { accessToken, idToken, error in
             Task { @MainActor in
                 if let error = error {
                     completion(nil, "Refresh failed: \(error.localizedDescription)")
                 } else {
-                    self.saveAuthState() // احفظ الحالة الجديدة
+                    self.saveAuthState()
                     completion(
-                        AuthTokens(accessToken: accessToken, refreshToken: authState.lastTokenResponse?.refreshToken, idToken: idToken),
-                        nil)
+                        AuthTokens(
+                            accessToken: accessToken,
+                            refreshToken: authState.lastTokenResponse?.refreshToken,
+                            idToken: idToken
+                        ), nil
+                    )
                 }
             }
         }
@@ -229,9 +225,8 @@ public class KAuthManager: NSObject {
             idToken: authState.lastTokenResponse?.idToken
         )
     }
-
     
-    // MARK: - Get User Info
+    // MARK: - User Info
     @objc public func getUserInfo(_ completion: @escaping ([String: Any]?, String?) -> Void) {
         loadAuthState()
         guard let accessToken = authState?.lastTokenResponse?.accessToken else {
@@ -271,12 +266,17 @@ public class KAuthManager: NSObject {
         task.resume()
     }
     
-    // MARK: - Persistence using Keychain (kmmcrypto)
+    // MARK: - Persistence (Keychain + fallback)
     private func saveAuthState() {
         guard let state = authState else { return }
+        guard let service = self.service, let group = self.group else {
+            print("🔐 Service/group not initialized — abort save")
+            return
+        }
+        
         do {
             let data = try NSKeyedArchiver.archivedData(withRootObject: state, requiringSecureCoding: true)
-            IOSCryptoManager.saveDataType(service: self.service!, account: self.group!, data: data) { error in
+            IOSCryptoManager.saveDataType(service: service, account: group, data: data) { error in
                 if let error = error {
                     print("🔐 Save auth state failed: \(error.localizedDescription)")
                 } else {
@@ -284,12 +284,28 @@ public class KAuthManager: NSObject {
                 }
             }
         } catch {
-            print("🔐 Save auth state serialization failed: \(error)")
+            print("🔐 Secure archiving failed: \(error). Trying fallback.")
+            do {
+                let fallback = try NSKeyedArchiver.archivedData(withRootObject: state, requiringSecureCoding: false)
+                IOSCryptoManager.saveDataType(service: service, account: group, data: fallback) { err in
+                    if let err = err {
+                        print("🔐 Fallback save failed: \(err.localizedDescription)")
+                    } else {
+                        print("🔐 Fallback auth state saved (non-secure).")
+                    }
+                }
+            } catch {
+                print("🔐 Fallback archiving also failed: \(error)")
+            }
         }
     }
     
     private func loadAuthState() {
-        IOSCryptoManager.getDataType(service: self.service!, account: self.group!) { data, error in
+        guard let service = self.service, let group = self.group else {
+            print("🔐 Service/group not initialized — abort load")
+            return
+        }
+        IOSCryptoManager.getDataType(service: service, account: group) { data, error in
             if let error = error {
                 print("🔐 Load auth state failed: \(error.localizedDescription)")
                 return
@@ -308,7 +324,8 @@ public class KAuthManager: NSObject {
     
     private func clearAuthState() {
         authState = nil
-        IOSCryptoManager.deleteData(service: self.service!, account: self.group!)
+        guard let service = self.service, let group = self.group else { return }
+        IOSCryptoManager.deleteData(service: service, account: group)
         print("🔐 Auth state cleared from Keychain")
     }
 }
