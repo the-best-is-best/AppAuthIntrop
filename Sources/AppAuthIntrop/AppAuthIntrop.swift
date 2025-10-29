@@ -197,6 +197,7 @@ public class KAuthManager: NSObject {
         }
     }
 
+   
     @MainActor
     @objc public func refreshAccessToken(
         _ completion: @escaping (_ success: AuthTokens?, _ error: String?) -> Void
@@ -206,7 +207,6 @@ public class KAuthManager: NSObject {
             return
         }
 
-        // Trigger refresh safely
         authState.setNeedsTokenRefresh()
         authState.performAction { [weak self] accessToken, idToken, error in
             guard let self = self else {
@@ -217,25 +217,27 @@ public class KAuthManager: NSObject {
             }
 
             if let error = error {
-                // Always dispatch to main thread before calling @objc completion
                 DispatchQueue.main.async {
                     completion(nil, "Refresh failed: \(error.localizedDescription)")
                 }
-            } else {
-                self.saveAuthState()
+                return
+            }
 
-                let tokens = AuthTokens(
-                    accessToken: accessToken,
-                    refreshToken: authState.lastTokenResponse?.refreshToken,
-                    idToken: idToken
-                )
+            self.saveAuthState()
 
-                DispatchQueue.main.async {
-                    completion(tokens, nil)
-                }
+            // ✅ Ensure no nils passed to AuthTokens
+            let tokens = AuthTokens(
+                accessToken: accessToken ?? "",
+                refreshToken: authState.lastTokenResponse?.refreshToken ?? "",
+                idToken: idToken ?? ""
+            )
+
+            DispatchQueue.main.async {
+                completion(tokens, nil)
             }
         }
     }
+
 
     @MainActor
     @objc public func getAuthTokens(_ completion: @escaping (AuthTokens?) -> Void) {
