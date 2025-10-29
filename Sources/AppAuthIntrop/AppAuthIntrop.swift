@@ -229,14 +229,34 @@ public class KAuthManager: NSObject {
     
     @MainActor
     @objc public func getAuthTokens() -> AuthTokens? {
+        // Ensure auth state is loaded from storage first
         loadAuthState()
-        guard let authState = self.authState else { return nil }
+
+        guard let authState = self.authState else {
+            print("❌ getAuthTokens(): authState is nil")
+            return nil
+        }
+
+        guard let tokenResponse = authState.lastTokenResponse else {
+            print("⚠️ getAuthTokens(): lastTokenResponse is nil")
+            return nil
+        }
+
+        guard let accessToken = tokenResponse.accessToken,
+              let refreshToken = tokenResponse.refreshToken,
+              let idToken = tokenResponse.idToken else {
+            print("⚠️ getAuthTokens(): one or more tokens are missing")
+            return nil
+        }
+
+        // Everything is valid → return tokens safely
         return AuthTokens(
-            accessToken: authState.lastTokenResponse?.accessToken,
-            refreshToken: authState.lastTokenResponse?.refreshToken,
-            idToken: authState.lastTokenResponse?.idToken
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            idToken: idToken
         )
     }
+
     
     // MARK: - User Info
     @objc public func getUserInfo(_ completion: @escaping ([String: Any]?, String?) -> Void) {
