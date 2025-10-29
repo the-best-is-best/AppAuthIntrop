@@ -20,10 +20,13 @@ public class KAuthManager: NSObject {
 
     private var service: String?
     private var group: String?
+    
+    private var openId:KOpenIdConfig?
 
-    @objc public func initCrypto(service: String, group: String) {
+    @objc public func initCrypto(service: String, group: String, client: KOpenIdConfig) {
         self.service = service
         self.group = group
+        self.openId = client
     }
 
     // MARK: - Public getters
@@ -45,8 +48,7 @@ public class KAuthManager: NSObject {
         }
 
         Task {
-            let openId = KOpenIdConfig.shared
-            let discoveryUrl = await openId.getDiscoveryUrl()
+            let discoveryUrl = openId!.discoveryUrl
 
             guard let issuer = URL(string: discoveryUrl) else {
                 Task { @MainActor in
@@ -89,14 +91,13 @@ public class KAuthManager: NSObject {
             }
 
             Task {
-                let openId = KOpenIdConfig.shared
-                guard let redirectURI = URL(string: await openId.getRedirectUrl()) else {
+                guard let redirectURI = URL(string: self.openId!.redirectUrl) else {
                     await MainActor.run { completion(nil, "Invalid redirect URL") }
                     return
                 }
 
-                let clientID = await openId.getClientId()
-                let scope = await openId.getScope()
+                let clientID =  self.openId!.clientId
+                let scope =  self.openId!.scope
                 let scopes = scope.split(separator: " ").map { String($0) }
 
                 let request = OIDAuthorizationRequest(
@@ -160,8 +161,7 @@ public class KAuthManager: NSObject {
             }
 
             Task {
-                let openId = KOpenIdConfig.shared
-                guard let logoutRedirectURI = URL(string: await openId.getPostLogoutRedirectURL())
+                guard let logoutRedirectURI = URL(string: self.openId!.postLogoutRedirectURL)
                 else {
                     await MainActor.run { completion(false, "Invalid logout redirect URL") }
                     return
