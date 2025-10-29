@@ -226,77 +226,91 @@ public class KAuthManager: NSObject {
         }
     }
 
+
+
+    @MainActor
+    @objc public func getAuthTokens(_ completion: @escaping (AuthTokens?) -> Void) {
+        Task {
+            await loadAuthState()
+            
+            guard let authState = self.authState else {
+                print("❌ getAuthTokens(): authState is nil after loadAuthState()")
+                completion(nil)
+                return
+            }
+            
+            guard let tokenResponse = authState.lastTokenResponse else {
+                print("⚠️ getAuthTokens(): lastTokenResponse is nil")
+                completion(nil)
+                return
+            }
+            
+            guard let accessToken = tokenResponse.accessToken,
+                  let refreshToken = tokenResponse.refreshToken,
+                  let idToken = tokenResponse.idToken else {
+                print("⚠️ getAuthTokens(): one or more tokens are missing")
+                completion(nil)
+                return
+            }
+            
+            let tokens = AuthTokens(
+                accessToken: accessToken,
+                refreshToken: refreshToken,
+                idToken: idToken
+            )
+            
+            completion(tokens)
+        }
+    }
+
+
+
+    
     
     @MainActor
-    @objc public func getAuthTokens() -> AuthTokens? {
-        // Ensure auth state is loaded from storage first
-        loadAuthState()
-
-        guard let authState = self.authState else {
-            print("❌ getAuthTokens(): authState is nil")
-            return nil
-        }
-
-        guard let tokenResponse = authState.lastTokenResponse else {
-            print("⚠️ getAuthTokens(): lastTokenResponse is nil")
-            return nil
-        }
-
-        guard let accessToken = tokenResponse.accessToken,
-              let refreshToken = tokenResponse.refreshToken,
-              let idToken = tokenResponse.idToken else {
-            print("⚠️ getAuthTokens(): one or more tokens are missing")
-            return nil
-        }
-
-        // Everything is valid → return tokens safely
-        return AuthTokens(
-            accessToken: accessToken,
-            refreshToken: refreshToken,
-            idToken: idToken
-        )
-    }
-
-    
     // MARK: - User Info
     @objc public func getUserInfo(_ completion: @escaping ([String: Any]?, String?) -> Void) {
-        loadAuthState()
-        guard let accessToken = authState?.lastTokenResponse?.accessToken else {
-            completion(nil, "No access token available")
-            return
-        }
-        
-        guard let endpoint = authState?.lastAuthorizationResponse.request.configuration.discoveryDocument?.userinfoEndpoint else {
-            completion(nil, "UserInfo endpoint not found")
-            return
-        }
-        
-        var request = URLRequest(url: endpoint)
-        request.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        
-        let task = URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                completion(nil, error.localizedDescription)
+        Task {
+            await loadAuthState() // الآن await مسموح داخل Task
+
+            guard let accessToken = authState?.lastTokenResponse?.accessToken else {
+                completion(nil, "No access token available")
                 return
             }
-            guard let data = data,
-                  let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200 else {
-                completion(nil, "Invalid response")
+
+            guard let endpoint = authState?.lastAuthorizationResponse.request.configuration.discoveryDocument?.userinfoEndpoint else {
+                completion(nil, "UserInfo endpoint not found")
                 return
             }
-            do {
-                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                    completion(json, nil)
-                } else {
-                    completion(nil, "Invalid JSON")
+
+            var request = URLRequest(url: endpoint)
+            request.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+            let task = URLSession.shared.dataTask(with: request) { data, response, error in
+                if let error = error {
+                    completion(nil, error.localizedDescription)
+                    return
                 }
-            } catch {
-                completion(nil, error.localizedDescription)
+                guard let data = data,
+                      let httpResponse = response as? HTTPURLResponse,
+                      httpResponse.statusCode == 200 else {
+                    completion(nil, "Invalid response")
+                    return
+                }
+                do {
+                    if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                        completion(json, nil)
+                    } else {
+                        completion(nil, "Invalid JSON")
+                    }
+                } catch {
+                    completion(nil, error.localizedDescription)
+                }
             }
+            task.resume()
         }
-        task.resume()
     }
+
     
     // MARK: - Persistence (Keychain + fallback)
     private func saveAuthState() {
@@ -332,27 +346,51 @@ public class KAuthManager: NSObject {
         }
     }
     
-    private func loadAuthState() {
+    @MainActor
+    private func loadAuthState() async {
+        // تأكد أن service و group موجودين
         guard let service = self.service, let group = self.group else {
             print("🔐 Service/group not initialized — abort load")
             return
         }
-        IOSCryptoManager.getDataType(service: service, account: group) { data, error in
-            if let error = error {
-                print("🔐 Load auth state failed: \(error.localizedDescription)")
-                return
-            }
-            guard let data = data as Data? else { return }
-            do {
-                if let state = try NSKeyedUnarchiver.unarchivedObject(ofClass: OIDAuthState.self, from: data) {
-                    self.authState = state
-                    print("🔐 Auth state loaded successfully from Keychain")
+
+        // استخدم withCheckedContinuation مع نوع صريح
+        let state: OIDAuthState? = await withCheckedContinuation { (continuation: CheckedContinuation<OIDAuthState?, Never>) in
+            IOSCryptoManager.getDataType(service: service, account: group) { nsData, error in
+                if let error = error {
+                    print("🔐 Load auth state failed: \(error.localizedDescription)")
+                    continuation.resume(returning: nil)
+                    return
                 }
-            } catch {
-                print("🔐 Load auth state decoding failed: \(error)")
+
+                guard let nsData = nsData else {
+                    print("🔐 No data found in Keychain")
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                let data = nsData as Data // تحويل صريح من NSData إلى Data
+
+                do {
+                    if let authState = try NSKeyedUnarchiver.unarchivedObject(ofClass: OIDAuthState.self, from: data) {
+                        print("🔐 Auth state loaded successfully from Keychain")
+                        continuation.resume(returning: authState)
+                    } else {
+                        print("🔐 Decoding returned nil")
+                        continuation.resume(returning: nil)
+                    }
+                } catch {
+                    print("🔐 Load auth state decoding failed: \(error)")
+                    continuation.resume(returning: nil)
+                }
             }
         }
+
+        // احفظ authState داخل الكلاس
+        self.authState = state
     }
+
+
     
     private func clearAuthState() {
         authState = nil
