@@ -239,40 +239,27 @@ public class KAuthManager: NSObject {
 
     @MainActor
     @objc public func getAuthTokens(_ completion: @escaping (AuthTokens?) -> Void) {
-        Task { @MainActor [weak self] in
-            guard let self = self else { return completion(nil) }
-            guard self.service != nil && self.group != nil else {
-                print("❌ getAuthTokens(): service/group not initialized")
+        guard service != nil && group != nil else {
+            print("❌ getAuthTokens(): service/group not initialized")
+            return completion(nil)
+        }
+
+        Task {
+            await loadAuthState()
+
+            guard let authState = self.authState,
+                  let tokenResponse = authState.lastTokenResponse,
+                  let accessToken = tokenResponse.accessToken else {
+                print("❌ getAuthTokens(): authState or accessToken is nil")
                 return completion(nil)
             }
 
-            do {
-                await self.loadAuthState()
-
-                guard let authState = self.authState else {
-                    print("❌ getAuthTokens(): authState is nil after loadAuthState()")
-                    return completion(nil)
-                }
-
-                guard let tokenResponse = authState.lastTokenResponse,
-                      let accessToken = tokenResponse.accessToken,
-                      let refreshToken = tokenResponse.refreshToken,
-                      let idToken = tokenResponse.idToken else {
-                    print("⚠️ getAuthTokens(): one or more tokens are missing")
-                    return completion(nil)
-                }
-
-                let tokens = AuthTokens(
-                    accessToken: accessToken,
-                    refreshToken: refreshToken,
-                    idToken: idToken
-                )
-
-                completion(tokens)
-            } catch {
-                print("❌ getAuthTokens(): unexpected error \(error)")
-                completion(nil)
-            }
+            let tokens = AuthTokens(
+                accessToken: accessToken,
+                refreshToken: tokenResponse.refreshToken,
+                idToken: tokenResponse.idToken
+            )
+            completion(tokens)
         }
     }
 
