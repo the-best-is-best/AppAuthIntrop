@@ -238,32 +238,45 @@ public class KAuthManager: NSObject {
         }
     }
 
-
     @MainActor
-    @objc public func getAuthTokens(_ completion: @escaping (AuthTokens?) -> Void) {
-        guard service != nil && group != nil else {
-            print("❌ getAuthTokens(): service/group not initialized")
-            return completion(nil)
-        }
-
-        Task {
+    @objc public func getAuthTokens(completion: @escaping (AuthTokens?) -> Void) {
+        Task { @MainActor in
             await loadAuthState()
 
-            guard let authState = self.authState,
-                  let tokenResponse = authState.lastTokenResponse,
-                  let accessToken = tokenResponse.accessToken else {
-                print("❌ getAuthTokens(): authState or accessToken is nil")
-                return completion(nil)
+            guard let authState = self.authState else {
+                print("⚠️ getAuthTokens(): authState is nil → user must sign in first")
+                completion(nil)
+                return
             }
 
-            let tokens = AuthTokens(
-                accessToken: accessToken,
-                refreshToken: tokenResponse.refreshToken,
-                idToken: tokenResponse.idToken
-            )
-            completion(tokens)
+            authState.performAction { accessToken, idToken, error in
+                if let error = error {
+                    print("❌ performAction failed: \(error.localizedDescription)")
+                    completion(nil)
+                    return
+                }
+
+                guard let accessToken = accessToken else {
+                    print("⚠️ performAction: accessToken is nil")
+                    completion(nil)
+                    return
+                }
+
+                let refreshToken = authState.lastTokenResponse?.refreshToken
+                let idToken = idToken ?? authState.lastTokenResponse?.idToken
+
+                let tokens = AuthTokens(
+                    accessToken: accessToken,
+                    refreshToken: refreshToken,
+                    idToken: idToken
+                )
+
+                completion(tokens)
+            }
         }
     }
+
+
 
 
     @MainActor
