@@ -239,7 +239,8 @@ public class KAuthManager: NSObject {
     }
 
     @MainActor
-    @objc public func getAuthTokens(completion: @escaping (AuthTokens?) -> Void) {
+    @objc(getAuthTokens:)
+    public func getAuthTokens(completion: @escaping (AuthTokens?) -> Void) {
         Task { @MainActor in
             await loadAuthState()
 
