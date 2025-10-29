@@ -5,55 +5,60 @@
 //  Created by Michelle Raouf on 27/10/2025.
 //
 
-import Foundation
 import AppAuth
+import Foundation
 import kmmcrypto
 
 @objcMembers
 public class KAuthManager: NSObject {
-    
+
     @MainActor public static let shared = KAuthManager()
-    
+
     private var authState: OIDAuthState?
     private var currentFlow: OIDExternalUserAgentSession?
     private var configuration: OIDServiceConfiguration?
-    
+
     private var service: String?
     private var group: String?
-    
+
     @objc public func initCrypto(service: String, group: String) {
         self.service = service
         self.group = group
     }
-    
+
     // MARK: - Public getters
     @objc public var accessToken: String? {
         return authState?.lastTokenResponse?.accessToken
     }
-    
+
     @objc public var refreshToken: String? {
         return authState?.lastTokenResponse?.refreshToken
     }
-    
+
     // MARK: - Load OpenID Configuration
-    @MainActor private func loadConfiguration(_ completion: @escaping (OIDServiceConfiguration?, Error?) -> Void) {
+    @MainActor private func loadConfiguration(
+        _ completion: @escaping (OIDServiceConfiguration?, Error?) -> Void
+    ) {
         if let config = configuration {
             Task { @MainActor in completion(config, nil) }
             return
         }
-        
+
         Task {
             let openId = KOpenIdConfig.shared
             let discoveryUrl = await openId.getDiscoveryUrl()
-            
+
             guard let issuer = URL(string: discoveryUrl) else {
                 Task { @MainActor in
-                    completion(nil, NSError(domain: "KAuthManager", code: -1,
-                                            userInfo: [NSLocalizedDescriptionKey: "Invalid Discovery URL"]))
+                    completion(
+                        nil,
+                        NSError(
+                            domain: "KAuthManager", code: -1,
+                            userInfo: [NSLocalizedDescriptionKey: "Invalid Discovery URL"]))
                 }
                 return
             }
-            
+
             OIDAuthorizationService.discoverConfiguration(forIssuer: issuer) { config, error in
                 Task { @MainActor in
                     self.configuration = config
@@ -62,15 +67,17 @@ public class KAuthManager: NSObject {
             }
         }
     }
-    
+
     // MARK: - Login
     @MainActor
-    @objc public func login(_ completion: @escaping (_ success: AuthTokens?, _ error: String?) -> Void) {
+    @objc public func login(
+        _ completion: @escaping (_ success: AuthTokens?, _ error: String?) -> Void
+    ) {
         guard let presentingVC = KAuthPresenter.topViewController() else {
             completion(nil, "No active ViewController found")
             return
         }
-        
+
         loadConfiguration { config, error in
             if let error = error {
                 completion(nil, "Discovery error: \(error.localizedDescription)")
@@ -80,18 +87,18 @@ public class KAuthManager: NSObject {
                 completion(nil, "Configuration missing")
                 return
             }
-            
+
             Task {
                 let openId = KOpenIdConfig.shared
                 guard let redirectURI = URL(string: await openId.getRedirectUrl()) else {
                     await MainActor.run { completion(nil, "Invalid redirect URL") }
                     return
                 }
-                
+
                 let clientID = await openId.getClientId()
                 let scope = await openId.getScope()
                 let scopes = scope.split(separator: " ").map { String($0) }
-                
+
                 let request = OIDAuthorizationRequest(
                     configuration: config,
                     clientId: clientID,
@@ -101,7 +108,7 @@ public class KAuthManager: NSObject {
                     responseType: OIDResponseTypeCode,
                     additionalParameters: nil
                 )
-                
+
                 self.currentFlow = OIDAuthState.authState(
                     byPresenting: request,
                     presenting: presentingVC
@@ -126,7 +133,7 @@ public class KAuthManager: NSObject {
             }
         }
     }
-    
+
     // MARK: - Logout
     @MainActor
     @objc public func logout(_ completion: @escaping (Bool, String?) -> Void) {
@@ -134,13 +141,14 @@ public class KAuthManager: NSObject {
             completion(false, "No active ViewController found")
             return
         }
-        
+
         guard let authState = authState,
-              let idToken = authState.lastTokenResponse?.idToken else {
+            let idToken = authState.lastTokenResponse?.idToken
+        else {
             completion(false, "No session found")
             return
         }
-        
+
         loadConfiguration { config, error in
             if let error = error {
                 completion(false, "Discovery error: \(error.localizedDescription)")
@@ -150,14 +158,15 @@ public class KAuthManager: NSObject {
                 completion(false, "Configuration missing")
                 return
             }
-            
+
             Task {
                 let openId = KOpenIdConfig.shared
-                guard let logoutRedirectURI = URL(string: await openId.getPostLogoutRedirectURL()) else {
+                guard let logoutRedirectURI = URL(string: await openId.getPostLogoutRedirectURL())
+                else {
                     await MainActor.run { completion(false, "Invalid logout redirect URL") }
                     return
                 }
-                
+
                 let endSessionRequest = OIDEndSessionRequest(
                     configuration: config,
                     idTokenHint: idToken,
@@ -165,12 +174,12 @@ public class KAuthManager: NSObject {
                     state: UUID().uuidString,
                     additionalParameters: nil
                 )
-                
+
                 guard let userAgent = OIDExternalUserAgentIOS(presenting: presentingVC) else {
                     await MainActor.run { completion(false, "Failed to create user agent") }
                     return
                 }
-                
+
                 self.currentFlow = OIDAuthorizationService.present(
                     endSessionRequest,
                     externalUserAgent: userAgent
@@ -187,9 +196,11 @@ public class KAuthManager: NSObject {
             }
         }
     }
-    
+
     @MainActor
-    @objc public func refreshAccessToken(_ completion: @escaping (_ success: AuthTokens?, _ error: String?) -> Void) {
+    @objc public func refreshAccessToken(
+        _ completion: @escaping (_ success: AuthTokens?, _ error: String?) -> Void
+    ) {
         guard let authState = authState else {
             completion(nil, "No auth state available")
             return
@@ -212,13 +223,13 @@ public class KAuthManager: NSObject {
                 }
             } else {
                 self.saveAuthState()
-                
+
                 let tokens = AuthTokens(
                     accessToken: accessToken,
                     refreshToken: authState.lastTokenResponse?.refreshToken,
                     idToken: idToken
                 )
-                
+
                 DispatchQueue.main.async {
                     completion(tokens, nil)
                 }
@@ -226,59 +237,61 @@ public class KAuthManager: NSObject {
         }
     }
 
-
-
     @MainActor
     @objc public func getAuthTokens(_ completion: @escaping (AuthTokens?) -> Void) {
-        Task {
-            await loadAuthState()
-            
-            guard let authState = self.authState else {
-                print("❌ getAuthTokens(): authState is nil after loadAuthState()")
-                completion(nil)
-                return
+        Task { @MainActor [weak self] in
+            guard let self = self else { return completion(nil) }
+            guard self.service != nil && self.group != nil else {
+                print("❌ getAuthTokens(): service/group not initialized")
+                return completion(nil)
             }
-            
-            guard let tokenResponse = authState.lastTokenResponse else {
-                print("⚠️ getAuthTokens(): lastTokenResponse is nil")
+
+            do {
+                await self.loadAuthState()
+
+                guard let authState = self.authState else {
+                    print("❌ getAuthTokens(): authState is nil after loadAuthState()")
+                    return completion(nil)
+                }
+
+                guard let tokenResponse = authState.lastTokenResponse,
+                      let accessToken = tokenResponse.accessToken,
+                      let refreshToken = tokenResponse.refreshToken,
+                      let idToken = tokenResponse.idToken else {
+                    print("⚠️ getAuthTokens(): one or more tokens are missing")
+                    return completion(nil)
+                }
+
+                let tokens = AuthTokens(
+                    accessToken: accessToken,
+                    refreshToken: refreshToken,
+                    idToken: idToken
+                )
+
+                completion(tokens)
+            } catch {
+                print("❌ getAuthTokens(): unexpected error \(error)")
                 completion(nil)
-                return
             }
-            
-            guard let accessToken = tokenResponse.accessToken,
-                  let refreshToken = tokenResponse.refreshToken,
-                  let idToken = tokenResponse.idToken else {
-                print("⚠️ getAuthTokens(): one or more tokens are missing")
-                completion(nil)
-                return
-            }
-            
-            let tokens = AuthTokens(
-                accessToken: accessToken,
-                refreshToken: refreshToken,
-                idToken: idToken
-            )
-            
-            completion(tokens)
         }
     }
 
 
-
-    
-    
     @MainActor
     // MARK: - User Info
     @objc public func getUserInfo(_ completion: @escaping ([String: Any]?, String?) -> Void) {
         Task {
-            await loadAuthState() // الآن await مسموح داخل Task
+            await loadAuthState()  // الآن await مسموح داخل Task
 
             guard let accessToken = authState?.lastTokenResponse?.accessToken else {
                 completion(nil, "No access token available")
                 return
             }
 
-            guard let endpoint = authState?.lastAuthorizationResponse.request.configuration.discoveryDocument?.userinfoEndpoint else {
+            guard
+                let endpoint = authState?.lastAuthorizationResponse.request.configuration
+                    .discoveryDocument?.userinfoEndpoint
+            else {
                 completion(nil, "UserInfo endpoint not found")
                 return
             }
@@ -292,8 +305,9 @@ public class KAuthManager: NSObject {
                     return
                 }
                 guard let data = data,
-                      let httpResponse = response as? HTTPURLResponse,
-                      httpResponse.statusCode == 200 else {
+                    let httpResponse = response as? HTTPURLResponse,
+                    httpResponse.statusCode == 200
+                else {
                     completion(nil, "Invalid response")
                     return
                 }
@@ -311,7 +325,6 @@ public class KAuthManager: NSObject {
         }
     }
 
-    
     // MARK: - Persistence (Keychain + fallback)
     private func saveAuthState() {
         guard let state = authState else { return }
@@ -319,9 +332,10 @@ public class KAuthManager: NSObject {
             print("🔐 Service/group not initialized — abort save")
             return
         }
-        
+
         do {
-            let data = try NSKeyedArchiver.archivedData(withRootObject: state, requiringSecureCoding: true)
+            let data = try NSKeyedArchiver.archivedData(
+                withRootObject: state, requiringSecureCoding: true)
             IOSCryptoManager.saveDataType(service: service, account: group, data: data) { error in
                 if let error = error {
                     print("🔐 Save auth state failed: \(error.localizedDescription)")
@@ -332,8 +346,10 @@ public class KAuthManager: NSObject {
         } catch {
             print("🔐 Secure archiving failed: \(error). Trying fallback.")
             do {
-                let fallback = try NSKeyedArchiver.archivedData(withRootObject: state, requiringSecureCoding: false)
-                IOSCryptoManager.saveDataType(service: service, account: group, data: fallback) { err in
+                let fallback = try NSKeyedArchiver.archivedData(
+                    withRootObject: state, requiringSecureCoding: false)
+                IOSCryptoManager.saveDataType(service: service, account: group, data: fallback) {
+                    err in
                     if let err = err {
                         print("🔐 Fallback save failed: \(err.localizedDescription)")
                     } else {
@@ -345,7 +361,7 @@ public class KAuthManager: NSObject {
             }
         }
     }
-    
+
     @MainActor
     private func loadAuthState() async {
         // تأكد أن service و group موجودين
@@ -355,7 +371,8 @@ public class KAuthManager: NSObject {
         }
 
         // استخدم withCheckedContinuation مع نوع صريح
-        let state: OIDAuthState? = await withCheckedContinuation { (continuation: CheckedContinuation<OIDAuthState?, Never>) in
+        let state: OIDAuthState? = await withCheckedContinuation {
+            (continuation: CheckedContinuation<OIDAuthState?, Never>) in
             IOSCryptoManager.getDataType(service: service, account: group) { nsData, error in
                 if let error = error {
                     print("🔐 Load auth state failed: \(error.localizedDescription)")
@@ -369,10 +386,12 @@ public class KAuthManager: NSObject {
                     return
                 }
 
-                let data = nsData as Data // تحويل صريح من NSData إلى Data
+                let data = nsData as Data  // تحويل صريح من NSData إلى Data
 
                 do {
-                    if let authState = try NSKeyedUnarchiver.unarchivedObject(ofClass: OIDAuthState.self, from: data) {
+                    if let authState = try NSKeyedUnarchiver.unarchivedObject(
+                        ofClass: OIDAuthState.self, from: data)
+                    {
                         print("🔐 Auth state loaded successfully from Keychain")
                         continuation.resume(returning: authState)
                     } else {
@@ -390,8 +409,6 @@ public class KAuthManager: NSObject {
         self.authState = state
     }
 
-
-    
     private func clearAuthState() {
         authState = nil
         guard let service = self.service, let group = self.group else { return }
