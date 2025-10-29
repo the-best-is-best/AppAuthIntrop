@@ -188,32 +188,44 @@ public class KAuthManager: NSObject {
         }
     }
     
-    // MARK: - Refresh Token
     @MainActor
     @objc public func refreshAccessToken(_ completion: @escaping (_ success: AuthTokens?, _ error: String?) -> Void) {
         guard let authState = authState else {
             completion(nil, "No auth state available")
             return
         }
-        
+
+        // Trigger refresh safely
         authState.setNeedsTokenRefresh()
-        authState.performAction { accessToken, idToken, error in
-            Task { @MainActor in
-                if let error = error {
+        authState.performAction { [weak self] accessToken, idToken, error in
+            guard let self = self else {
+                DispatchQueue.main.async {
+                    completion(nil, "Instance deallocated")
+                }
+                return
+            }
+
+            if let error = error {
+                // Always dispatch to main thread before calling @objc completion
+                DispatchQueue.main.async {
                     completion(nil, "Refresh failed: \(error.localizedDescription)")
-                } else {
-                    self.saveAuthState()
-                    completion(
-                        AuthTokens(
-                            accessToken: accessToken,
-                            refreshToken: authState.lastTokenResponse?.refreshToken,
-                            idToken: idToken
-                        ), nil
-                    )
+                }
+            } else {
+                self.saveAuthState()
+                
+                let tokens = AuthTokens(
+                    accessToken: accessToken,
+                    refreshToken: authState.lastTokenResponse?.refreshToken,
+                    idToken: idToken
+                )
+                
+                DispatchQueue.main.async {
+                    completion(tokens, nil)
                 }
             }
         }
     }
+
     
     @MainActor
     @objc public func getAuthTokens() -> AuthTokens? {
