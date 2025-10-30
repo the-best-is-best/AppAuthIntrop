@@ -153,6 +153,7 @@ public class KAuthManager: NSObject {
     @objc public func logout(_ completion: @escaping (Bool, String?) -> Void) {
         Task {
             do {
+               await loadAuthState()
                 guard let presentingVC =  KAuthPresenter.topViewController() else {
                     await MainActor.run { completion(false, "No active ViewController found") }
                     return
