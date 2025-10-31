@@ -237,7 +237,7 @@ public class KAuthManager: NSObject {
                 let tokens = AuthTokens(
                     accessToken: accessToken ?? "",
                     refreshToken: authState.lastTokenResponse?.refreshToken ?? "",
-                    idToken: idToken ?? ""
+                    idToken: idToken ?? authState.lastTokenResponse?.idToken ?? ""
                 )
 
                 await MainActor.run { completion(tokens, nil) }
